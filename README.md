@@ -1,14 +1,16 @@
-# Classical Chinese UPOS pilot annotations
+# Classical Chinese corpus analysis
 
-This repository contains a 40-document pilot of automatic tokenization, part-of-speech tagging, and dependency parsing for texts from the 佛藏, 医藏, 道藏, and 儒藏 sections of the Daizhige corpus.
+This repository contains CoNLL-U annotations for Classical Chinese texts from four Daizhige collections, a script for generating more annotations, and a feasibility notebook that explores contextual uses of 仁, 道, and 天.
 
 ## Contents
 
-- `佛藏/`, `医藏/`, `道藏/`, and `儒藏/`: CoNLL-U files arranged in the same subfolder structure as the source corpus.
+- `upos-tags/`: 240 CoNLL-U files arranged in the source corpus folder structure: 60 each from 佛藏, 医藏, 道藏, and 儒藏. These are automatic model predictions and have not been manually corrected.
 - `scripts/tag_classical_chinese.py`: script used to generate the annotations and to process additional source documents.
 - `requirements-upos.txt`: Python dependency list (`esupar`).
+- `Classical_Chinese_Feasibility.ipynb`: exploratory analysis of standalone occurrences of 仁, 道, and 天. It uses the CoNLL-U files to locate target tokens, creates contextual embeddings with `ethanyt/guwenbert-base`, and clusters those embeddings separately for each target word.
+- `pilot_outputs/`: saved outputs from the feasibility notebook, including occurrence samples, embeddings, cluster assignments, review files, and plots.
 
-The pilot contains the first 10 Markdown files, in sorted path order, from each of the four sections: 40 files total. The `.conllu` files contain predicted annotations; they have not been manually reviewed.
+The current annotation set contains 60 files per collection. The tagging script selects files in sorted path order independently within each requested section. The committed set can be regenerated from the source corpus with `--offset 10 --limit 50` per section.
 
 ## Model and method
 
@@ -39,15 +41,18 @@ An underscore (`_`) means the field has no value. Blank lines separate parsed se
 
 ## Run the script
 
-Use Python 3. The first run downloads the model from Hugging Face and requires network access. From this repository's directory, with the original corpus available at `../daizhigev20`, install the dependency and process the pilot-sized sample:
+Use Python 3. The first run downloads the model from Hugging Face and requires network access. From this repository's directory, with the original corpus available at `../daizhigev20`, install the dependency and process the currently represented files:
 
 ```bash
 python3 -m pip install -r requirements-upos.txt
-HF_HUB_DISABLE_IMPLICIT_TOKEN=1 python3 scripts/tag_classical_chinese.py \
-  --corpus ../daizhigev20 --limit 10 --output ./pilot-output
+for section in 佛藏 医藏 道藏 儒藏; do
+  HF_HUB_DISABLE_IMPLICIT_TOKEN=1 python3 scripts/tag_classical_chinese.py \
+    --corpus ../daizhigev20 --sections "$section" --offset 10 --limit 50 \
+    --output ./upos-tags
+done
 ```
 
-To process the full four sections, omit `--limit 10` and set `--output .` to place results in this repository. Existing `.conllu` files are skipped by default, so the pilot files will be retained and the run can be resumed. Add `--overwrite` to regenerate existing annotations.
+To process all Markdown files in the four sections, omit `--offset` and `--limit`. Existing `.conllu` files are skipped by default, so a run can be resumed. Add `--overwrite` to regenerate existing annotations. The script creates the corresponding output directories and mirrors the source paths under `--output`.
 
 The Hugging Face model is public and does not require an access token. `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` prevents sending a locally saved token with public model requests.
 
@@ -55,5 +60,9 @@ To process a different selection, pass section names after `--sections`, for exa
 
 ```bash
 HF_HUB_DISABLE_IMPLICIT_TOKEN=1 python3 scripts/tag_classical_chinese.py \
-  --corpus ../daizhigev20 --sections 道藏 --limit 10 --output ./pilot-output
+  --corpus ../daizhigev20 --sections 道藏 --offset 10 --limit 50 --output ./upos-tags
 ```
+
+## Feasibility notebook notes
+
+The notebook uses the CoNLL-U tokenization to count target characters only when they are represented as standalone tokens. It then embeds a context window around each occurrence with GuwenBERT and applies KMeans (`k=3`) separately to each target word. UPOS tags are not clustering features; annotation quality can still affect which occurrences enter the analysis. The clusters are exploratory and may reflect topic, genre, author, or grammatical role as well as meaning. Review the exported contexts before interpreting clusters as semantic categories.

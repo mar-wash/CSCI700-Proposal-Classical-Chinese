@@ -89,6 +89,12 @@ def main() -> None:
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
     parser.add_argument("--output", type=Path, default=DEFAULT_CORPUS.parent / "upos-tags")
     parser.add_argument("--sections", nargs="+", default=DEFAULT_SECTIONS)
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Skip the first N sorted files in each section (default: 0).",
+    )
     parser.add_argument("--limit", type=int, help="Process only the first N files (for a pilot).")
     parser.add_argument(
         "--max-tokens",
@@ -99,13 +105,20 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true", help="Replace existing output files.")
     args = parser.parse_args()
 
-    sources = sorted(
-        path
-        for section in args.sections
-        for path in (args.corpus / section).rglob("*.md")
-    )
-    if args.limit is not None:
-        sources = sources[: args.limit]
+    if args.offset < 0:
+        parser.error("--offset must be zero or greater")
+    if args.limit is not None and args.limit < 0:
+        parser.error("--limit must be zero or greater")
+
+    # Apply the selection independently within each section, so --offset 10
+    # --limit 50 selects files 11–60 from every requested section.
+    sources = []
+    for section in args.sections:
+        section_sources = sorted((args.corpus / section).rglob("*.md"))
+        selected = section_sources[args.offset :]
+        if args.limit is not None:
+            selected = selected[: args.limit]
+        sources.extend(selected)
 
     # esupar maps `lzh` to KoichiYasuoka/roberta-classical-chinese-base-upos.
     nlp = esupar.load("lzh")
